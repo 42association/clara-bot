@@ -1,4 +1,4 @@
-# clara-bot
+# Bot
 定期的にAPIリクエストを行い、ボトルステータスが`false`であることを検知した場合にDiscordの指定されたチャンネルにボトル状況を投稿するDiscord Botです。`42_done`のリアクションを検知するとボトル交換者と交換までの時間を投稿し、対応したユーザー情報をデータベースへ格納します。全てが終了後、再び次のボトルステータスを問い合わせます。
 
 ## シンプルな実行
@@ -26,6 +26,78 @@
     ```bash
     node bot.js
     ```
+
+# API
+テストと仕様の確認
+## 1.データベース
+```
+$ pwd
+   <local_repository_root>/api
+$ touch ../db/clara.sqlite3
+$ sqlite3 ../db/clara.sqlite3 < ../db/clara.sql
+$ sqlite3 ../db/clara.sqlite3
+SQLite version 3.45.1
+Enter ".help" for usage hints.
+sqlite>  INSERT INTO clara(bottle_status, user_name, exchange_status) values('false', 'matsui', 'true');
+sqlite> SELECT * FROM clara;
+1|false|matsui|true
+sqlite>  INSERT INTO clara(bottle_status, user_name, exchange_status) values('true', NULL, 'false');
+sqlite> SELECT * FROM clara;
+1|false|matsui|true
+2|true||false
+sqlite> .quit
+```
+
+## 2. アプリケーションを起動。
+```
+$ go run main.go
+   ____    __
+  / __/___/ /  ___
+ / _// __/ _ \/ _ \
+/___/\__/_//_/\___/ v4.7.2
+High performance, minimalist Go web framework
+https://echo.labstack.com
+____________________________________O/_______
+                                    O\
+⇨ http server started on [::]:9000
+```
+
+## 3.マイコンからAPIへのPOSTリクエスト (ボトル"空"を伝える)
+```
+$ curl -X POST \
+   --url "http://127.0.0.1:9000/empty"
+{"message":"Bottle status updated to empty successfully"}
+$ sqlite3 ../db/clara.sqlite3
+SQLite version 3.45.1
+Enter ".help" for usage hints.
+sqlite> SELECT * FROM clara;
+1|false|matsui|true
+2|false||false
+sqlite> .exit  
+```
+
+## 4. BotからAPIへのGETリクエスト(ボトル"空"の検知)
+```
+$ curl -X GET 'http://localhost:9000/bottle/2'
+{"BottleID":2,"BottleStatus":"false"}
+```
+
+## 5. botからAPIへのPOSTリクエスト(user_nameの追加, bottle_idのインクリメントと初期値の代入)
+```
+$ curl -X POST \
+   --url "http://127.0.0.1:9000/adduser" \
+   -F "user_name=kamitsui"
+{"message":"User name updated successfully"}
+
+$ sqlite3 ../db/clara.sqlite3
+SQLite version 3.45.1 2024-01-30 16:01:20
+Enter ".help" for usage hints.
+sqlite> SELECT * FROM clara;
+1|false|matsui|true
+2|false|kamitsui|true
+3|true||false
+sqlite> .exit
+```
 
 # 機能
 
